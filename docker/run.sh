@@ -45,6 +45,9 @@ docker run \
     -v /etc/localtime:/etc/localtime \
     --shm-size=8gb \
     --mount "type=bind,src=$CWD/../visual_robot_localization/,dst=/opt/visual_robot_localization/src/visual_robot_localization" \
+    --mount "type=bind,src=$HOME/Hierarchical-Localization/outputs/,dst=/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/" \
+    --mount "type=bind,src=$HOME/Hierarchical-Localization/datasets/,dst=/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/" \
     --gpus 'all,"capabilities=graphics,utility,display,video,compute"' \
     "$DOCKER_IMAGE_NAME:$TAG" "$@" 
 xhost - local: 
+

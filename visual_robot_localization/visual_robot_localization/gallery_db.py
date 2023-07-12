@@ -17,9 +17,11 @@ class HlocPlaceRecognitionDBHandler:
         odometries = []
 
         odometry_dir_path = Path(odometry_dir_path)
-        img_names = self.gallery_db.keys()
+        img_names = self.gallery_db["mapping"].keys()
+        # img_names = self.gallery_db.keys()
         for img_name in img_names:
-            img_attrs = self.gallery_db[img_name]
+            img_attrs = self.gallery_db["mapping"][img_name]
+            # img_attrs = self.gallery_db[img_name]
             img_descriptor = img_attrs['global_descriptor']
 
             img_paths.append(str(odometry_dir_path / Path(img_name)))

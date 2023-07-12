@@ -57,6 +57,9 @@ class VisualLocalizer(Node):
         self.declare_parameter("gallery_sfm_path", "/image-gallery/example_dir/outputs/sfm_netvlad+superpoint_aachen+superglue/")
         gallery_sfm_path = self.get_parameter('gallery_sfm_path').get_parameter_value().string_value
 
+        self.declare_parameter("cam_string", "PINHOLE 1280 720 609.5238037109375 610.1694946289062 640 360")
+        cam_string = self.get_parameter('cam_string').get_parameter_value().string_value
+
         self.declare_parameter("localization_frequence", 2.0)
         self.pr_freq = self.get_parameter('localization_frequence').get_parameter_value().double_value
 
@@ -111,6 +114,7 @@ class VisualLocalizer(Node):
                                                     gallery_global_descriptor_path,
                                                     gallery_local_descriptor_path,
                                                     gallery_sfm_path,
+                                                    cam_string,
                                                     ransac_thresh)
 
         if self.compensate_sensor_offset:

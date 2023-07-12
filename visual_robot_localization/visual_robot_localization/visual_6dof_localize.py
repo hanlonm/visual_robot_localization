@@ -25,6 +25,7 @@ class VisualPoseEstimator:
                 gallery_global_descriptor_path,
                 gallery_local_descriptor_path,
                 reference_sfm_path,
+                cam_string: str,
                 ransac_thresh = 12):
 
         assert Path(image_gallery_path).exists, image_gallery_path
@@ -47,7 +48,10 @@ class VisualPoseEstimator:
 
         # Load the prebuilt colmap 3D pointcloud
         self.reconstruction = pycolmap.Reconstruction(reference_sfm_path)
-        self.query_camera = self.reconstruction.cameras[1]
+        model, width, height, *params = cam_string.split()
+        params = np.array(params, float)
+        self.query_camera = pycolmap.Camera(model, int(width), int(height), params)
+        # self.query_camera = self.reconstruction.cameras[1]
 
         self.ransac_thresh = ransac_thresh
         self.db_name_to_id = {image.name: i for i, image in self.reconstruction.images.items()}
@@ -79,7 +83,8 @@ class VisualPoseEstimator:
                                                     key, value in descriptor.items()} for \
                                                     descriptor in topk_gallery_images_local_descriptors]
 
-        topk_gallery_poses = [ literal_eval(odom)['pose']['pose'] for odom in ksmallest_odometries ]
+        # topk_gallery_poses = [ literal_eval(odom)['pose']['pose'] for odom in ksmallest_odometries ]
+        topk_gallery_poses = []
 
         # Extract the local descriptors for the query image
         query_local_descriptors = self.local_extractor(query_img)
