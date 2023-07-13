@@ -107,13 +107,13 @@ class FeatureMatcher:
         gallery_keypoint_counts = [ len(keypoints) for keypoints in gallery_keypoints ]
 
         # Zero-pad the gallery descriptors/keypoints/scores according to the feature with most keypoints
-        data['descriptors1'] = pad_sequence(gallery_descriptors, batch_first=True).transpose(1,2)
+        data['descriptors1'] = pad_sequence(gallery_descriptors, batch_first=True).transpose(1,2).half()
         data['keypoints1'] = pad_sequence(gallery_keypoints, batch_first=True)
         data['scores1'] = pad_sequence(gallery_scores, batch_first=True)
         batch_size = data['descriptors1'].shape[0]
 
         # Repeate query descriptor N times in batch dimension to match number of gallery descriptors
-        data['descriptors0'] = query_feature['descriptors'].unsqueeze(0).repeat( batch_size, 1, 1)
+        data['descriptors0'] = query_feature['descriptors'].unsqueeze(0).repeat( batch_size, 1, 1).half()
         data['keypoints0'] = query_feature['keypoints'].unsqueeze(0).repeat( batch_size, 1, 1)
         data['scores0'] = query_feature['scores'].unsqueeze(0).repeat(batch_size,1)
         data['image0'] = torch.empty((batch_size, 1, img_shape[0], img_shape[1]))

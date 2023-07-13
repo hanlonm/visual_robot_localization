@@ -42,7 +42,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
     	name='image_gallery_path',
-    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/mapping'
+    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/{environment}/mapping'
         ),
         launch.actions.DeclareLaunchArgument(
     	name='gallery_sfm_path',

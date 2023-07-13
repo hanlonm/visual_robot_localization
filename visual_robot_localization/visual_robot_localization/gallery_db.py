@@ -10,7 +10,7 @@ class HlocPlaceRecognitionDBHandler:
         odometry_suffix = '_odometry_camera.json'
 
         self.gallery_db = h5py.File(db_path, 'r')
-        self.gallery_len = len(self.gallery_db)
+        self.gallery_len = len(self.gallery_db["mapping"])
 
         img_paths = []
         descriptors = []
@@ -33,7 +33,7 @@ class HlocPlaceRecognitionDBHandler:
                     odometry = f.read()
             except FileNotFoundError:
                 odometry = None
-                print('No odometry found for {}'.format(str(Path(img_name).stem) + odometry_suffix))
+                # print('No odometry found for {}'.format(str(Path(img_name).stem) + odometry_suffix))
             odometries.append(odometry)
 
         self.img_paths = np.array(img_paths)

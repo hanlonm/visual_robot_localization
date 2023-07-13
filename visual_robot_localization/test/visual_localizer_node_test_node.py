@@ -40,6 +40,7 @@ class VisualLocalizerTestNode(Node):
         self.timer = self.create_timer( 3, self.timer_callback)
         
         test_img = cv2.imread(test_image_path)
+        print(test_img.shape)
 
         self.test_image_msg = self.cv_bridge.cv2_to_imgmsg(test_img, encoding="bgr8")
         print('Initialized visual localizer test node')

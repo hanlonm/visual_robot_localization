@@ -1,0 +1,26 @@
+version: '3'
+services:
+  visual_robot_localization:
+    image: visual_robot_localization:0.0.1
+    network_mode: "host"
+    environment:
+      - SDL_VIDEODRIVER=x11
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/localtime:/etc/localtime
+      - type: bind
+        source: ./../visual_robot_localization/
+        target: /opt/visual_robot_localization/src/visual_robot_localization
+      - type: bind
+        source: ${HOME}/Hierarchical-Localization/outputs/
+        target: /opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/
+      - type: bind
+        source: ${HOME}/Hierarchical-Localization/datasets/
+        target: /opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/
+    shm_size: 8gb
+    runtime: nvidia
+    container_name: visual_robot_localization
+
+    command: bash -c ". /opt/ros/foxy/setup.sh && colcon build && . install/setup.sh && nvidia-smi && ros2 launch visual_robot_localization DLAB_Test.launch.py"

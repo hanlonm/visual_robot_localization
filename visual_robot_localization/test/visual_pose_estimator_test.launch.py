@@ -12,6 +12,7 @@ import os
 def generate_test_description():
 
     path_to_test = os.path.dirname(__file__)
+    environment = "DLAB_Test"
     
     test_node = launch_ros.actions.Node(
             executable=sys.executable,
@@ -20,13 +21,13 @@ def generate_test_description():
             emulate_tty=True,
             parameters=[
             {
-            	'image_publish_topic': '/carla/ego_vehicle/rgb_front/image'
+            	'image_publish_topic': '/spot/rgb_front/image'
             },
             {
-            	'visual_pose_estimate_subscription_topic': '/carla/ego_vehicle/visual_pose_estimate'
+            	'visual_pose_estimate_subscription_topic': '/spot/visual_pose_estimate'
             },
             {
-            	'test_image_path': path_to_test + '/example_dir/im_0001.png'
+            	'test_image_path':  f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/{environment}/mapping/hetlf_1596980888.jpg'
     	    }
     	    ]
             )
@@ -41,10 +42,10 @@ def generate_test_description():
     		     'use_sim_time': False
                 },
                 {
-                    'pose_publish_topic': '/carla/ego_vehicle/visual_pose_estimate'
+                    'pose_publish_topic': '/spot/visual_pose_estimate'
                 },
                 {
-                    'camera_topic': '/carla/ego_vehicle/rgb_front/image'
+                    'camera_topic': '/spot/rgb_front/image'
                 },
                 {
                     'global_extractor_name': 'netvlad'
@@ -53,19 +54,19 @@ def generate_test_description():
                     'local_extractor_name': 'superpoint_aachen'
                 },
                 {
-                    'local_matcher_name': 'superglue'
+                    'local_matcher_name': 'NN-superpoint'
                 },
                 {
-                    'gallery_global_descriptor_path': path_to_test + '/example_dir/outputs/netvlad+superpoint_aachen+superglue/global-feats-netvlad.h5' # '/example_dir/outputs/dir+superpoint_aachen+superglue/global-feats-dir.h5' #
+                    'gallery_global_descriptor_path': f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/global-feats-netvlad.h5' # '/example_dir/outputs/dir+superpoint_aachen+superglue/global-feats-dir.h5' #
                 },
                 {
-                    'gallery_local_descriptor_path': path_to_test + '/example_dir/outputs/netvlad+superpoint_aachen+superglue/feats-superpoint-n4096-r1024.h5' # '/example_dir/outputs/dir+superpoint_aachen+superglue/feats-superpoint-n4096-r1024.h5' 
+                    'gallery_local_descriptor_path': f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/feats-superpoint-n4096-r1024.h5' # '/example_dir/outputs/dir+superpoint_aachen+superglue/feats-superpoint-n4096-r1024.h5' 
                 },
                 {
-                    'image_gallery_path':  path_to_test + '/example_dir/'
+                    'image_gallery_path':  f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/{environment}/mapping'
                 },
                 {
-                    'gallery_sfm_path': path_to_test + '/example_dir/outputs/netvlad+superpoint_aachen+superglue/sfm_netvlad+superpoint_aachen+superglue' # '/example_dir/outputs/dir+superpoint_aachen+superglue/sfm_dir+superpoint_aachen+superglue' 
+                    'gallery_sfm_path': f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/reconstruction' # '/example_dir/outputs/dir+superpoint_aachen+superglue/sfm_dir+superpoint_aachen+superglue' 
                 },
                 {
                     'compensate_sensor_offset': False
@@ -74,7 +75,7 @@ def generate_test_description():
                     'localization_frequence': 2.0
                 },
                 {
-                    'top_k_matches': 4
+                    'top_k_matches': 5
                 },
                 {
                     'ransac_thresh': 12

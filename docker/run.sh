@@ -38,7 +38,7 @@ export CWD=$(dirname "$SCRIPT")
 xhost + local:
 docker run \
     -it --rm \
-    --net=host \
+    --network=host \
     -e SDL_VIDEODRIVER='x11' \
     -e DISPLAY=$DISPLAY\
     -v /tmp/.X11-unix:/tmp/.X11-unix \

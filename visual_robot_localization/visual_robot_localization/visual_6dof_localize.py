@@ -69,14 +69,16 @@ class VisualPoseEstimator:
 
         # Get the sfm database id's of the images
         db_ids = []
+        #print(self.db_name_to_id)
         for n in ksmallest_filenames:
-            if n not in self.db_name_to_id:
+            if "mapping/"+n not in self.db_name_to_id:
+                #print(n)
                 print('Image {n} was retrieved but not in database')
                 continue
-            db_ids.append(self.db_name_to_id[n])
+            db_ids.append(self.db_name_to_id["mapping/"+n])
 
         # Get the local descriptors of the gallery images
-        topk_gallery_images_local_descriptors = [self.gallery_local_descriptor_file[filename] for \
+        topk_gallery_images_local_descriptors = [self.gallery_local_descriptor_file["mapping"][filename] for \
                                                 filename in ksmallest_filenames]
 
         topk_gallery_images_local_descriptors = [{key: torch.tensor(value[:]).to(self.device) for \

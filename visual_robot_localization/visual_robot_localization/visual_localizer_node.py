@@ -81,7 +81,7 @@ class VisualLocalizer(Node):
         self.declare_parameter("ransac_thresh", 12)
         ransac_thresh = self.get_parameter('ransac_thresh').get_parameter_value().integer_value
 
-        self.declare_parameter("visualize_estimates", False)
+        self.declare_parameter("visualize_estimates", True)
         self.visualize_estimates = self.get_parameter('visualize_estimates').get_parameter_value().bool_value
 
         self.vloc_publisher = self.create_publisher(
@@ -220,7 +220,7 @@ class VisualLocalizer(Node):
     def _estimate_visualizer(self, ret, timestamp, best_pose_idx):
         # Place recognition & PnP localization visualizations
         header = Header(frame_id='map', stamp=timestamp)
-        marker = Marker(header=header, scale=Vector3(x=1.0,y=1.0,z=1.0), type=8, action=0, color=ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0))
+        # marker = Marker(header=header, scale=Vector3(x=1.0,y=1.0,z=1.0), type=8, action=0, color=ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0))
         poses = PoseArray(header=header, poses=[])
         for i, estimate in enumerate(ret['pnp_estimates']):
             if i == best_pose_idx:
@@ -229,18 +229,18 @@ class VisualLocalizer(Node):
                 color = self.colormap(i+1)
             color = ColorRGBA(r=color[0], g=color[1], b=color[2], a=color[3])
 
-            place_recognition_idxs = estimate['place_recognition_idx']
-            for idx in place_recognition_idxs:
-                marker.colors.append(color)
+            # place_recognition_idxs = estimate['place_recognition_idx']
+            # for idx in place_recognition_idxs:
+            #     marker.colors.append(color)
 
-                place_reg_position = np2point_msg(ret['place_recognition'][idx]['tvec'])
-                marker.points.append(place_reg_position)
+            #     place_reg_position = np2point_msg(ret['place_recognition'][idx]['tvec'])
+            #     marker.points.append(place_reg_position)
 
             if estimate['success']:
                 pose_msg = Pose(position=np2point_msg(estimate['tvec']), orientation=np2quat_msg(estimate['qvec']))
                 poses.poses.append(pose_msg)
 
-        self.place_recognition_publisher.publish(marker)
+        # self.place_recognition_publisher.publish(marker)
         self.pnp_estimate_publisher.publish(poses)
 
 
