@@ -2,7 +2,7 @@ import launch
 import launch_ros.actions
 
 def generate_launch_description():
-    environment = "DLAB_Test"
+    environment = "00195"
     ld = launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(
 	name='pose_publish_topic',
@@ -10,7 +10,8 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
     	name='camera_topic',
-    	default_value='/spot/rgb_front/image'
+    	# default_value='/spot/rgb/image_rect_color'
+    	default_value='/image_raw'
         ),
         launch.actions.DeclareLaunchArgument(
     	name='base_frame',
@@ -54,7 +55,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
     	name='localization_frequence',
-    	default_value='2.0'
+    	default_value='3.0'
         ),
         # If the localization frequence is in ROS or wall time
         launch.actions.DeclareLaunchArgument(
@@ -63,7 +64,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
     	name='top_k_matches',
-    	default_value='5'
+    	default_value='20'
         ),
         launch.actions.DeclareLaunchArgument(
     	name='ransac_thresh',

@@ -10,6 +10,15 @@ from std_msgs.msg import ColorRGBA, Header, Bool
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose, Point, Quaternion, PoseArray, PoseWithCovariance, Vector3
 from visualization_msgs.msg import Marker
+from sensor_msgs.msg import PointCloud2, PointField
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
+
+from pytransform3d import transformations as pt
+
+
+
+
 
 
 from visual_localization_interfaces.msg import VisualPoseEstimate
@@ -88,6 +97,19 @@ class VisualLocalizer(Node):
             VisualPoseEstimate,
             pose_publish_topic,
             10)
+        self.vloc_pose_publisher = self.create_publisher(
+            PoseWithCovariance,
+            pose_publish_topic + "_pose",
+            10)
+        
+        self.pc_publisher = self.create_publisher(PointCloud2, 'map_pointcloud', 10)
+        # Initialize the transform broadcaster
+        self.tf_broadcaster = TransformBroadcaster(self)
+
+        self.T_cam_base = pt.transform_from(
+                np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0,
+                                                               0.0]]),
+                np.array([0, 0.0, 0.0]))
 
         # Visualization publishers
         if self.visualize_estimates:
@@ -116,6 +138,14 @@ class VisualLocalizer(Node):
                                                     gallery_sfm_path,
                                                     cam_string,
                                                     ransac_thresh)
+        self.reconstruction = self.pose_estimator.reconstruction
+        self.landmark_list = list(self.reconstruction.points3D.keys())
+        self.pcd_points = np.zeros((len(self.landmark_list), 3))
+         
+        for idx, landmark in enumerate(self.landmark_list):
+            self.pcd_points[idx] = np.array(
+                self.reconstruction.points3D[landmark].xyz)
+        self.pointcloud_msg = self.point_cloud(points=self.pcd_points, parent_frame="map")
 
         if self.compensate_sensor_offset:
             self.get_logger().info('Constructing sensor offset compensator...')
@@ -176,9 +206,11 @@ class VisualLocalizer(Node):
             best_estimate, best_cluster_idx = self.choose_best_estimate(ret)
 
             true_delay = Duration(nanoseconds = time.time_ns()-computation_start_time)
-            visual_pose_estimate_msg = self._construct_visual_pose_msg(best_estimate, image_msg.header.stamp, true_delay)
+            visual_pose_estimate_msg, pose_msg = self._construct_visual_pose_msg(best_estimate, image_msg.header.stamp, true_delay)
             
             self.vloc_publisher.publish(visual_pose_estimate_msg)
+
+            self.vloc_pose_publisher.publish(pose_msg)
 
             if self.visualize_estimates:
                 self._estimate_visualizer(ret, image_msg.header.stamp, best_cluster_idx)
@@ -199,7 +231,7 @@ class VisualLocalizer(Node):
                                                     pnp_success = pnp_success,
                                                     computation_delay=vloc_computation_delay.to_msg(),
                                                     pose=best_pose_msg)
-        return visual_pose_estimate_msg
+        return visual_pose_estimate_msg, best_pose_msg
 
 
     def choose_best_estimate(self, visual_pose_estimates):
@@ -236,12 +268,148 @@ class VisualLocalizer(Node):
             #     place_reg_position = np2point_msg(ret['place_recognition'][idx]['tvec'])
             #     marker.points.append(place_reg_position)
 
-            if estimate['success']:
+            if estimate['success'] and i == best_pose_idx:
                 pose_msg = Pose(position=np2point_msg(estimate['tvec']), orientation=np2quat_msg(estimate['qvec']))
                 poses.poses.append(pose_msg)
 
+                static_t = TransformStamped()
+                static_t.header.stamp = self.get_clock().now().to_msg()
+                static_t.header.frame_id = 'map'
+                static_t.child_frame_id = "colmap"
+                pq = pt.pq_from_transform(self.T_cam_base)
+                static_t.transform.translation.x = pq[0]
+                static_t.transform.translation.y = pq[1]
+                static_t.transform.translation.z = pq[2]
+                static_t.transform.rotation.x = pq[4]
+                static_t.transform.rotation.y = pq[5]
+                static_t.transform.rotation.z = pq[6]
+                static_t.transform.rotation.w = pq[3]
+
+                self.tf_broadcaster.sendTransform(static_t)
+
+                t = TransformStamped()
+                t.header.stamp = self.get_clock().now().to_msg()
+                t.header.frame_id = 'colmap'
+                t.child_frame_id = "cam"
+
+                
+
+                p = estimate['tvec']
+                q = estimate['qvec']
+                pq = np.concatenate([p, q])
+
+                tr = pt.transform_from_pq(pq)
+                # tr = pt.invert_transform(tr)
+                # tr = pt.invert_transform(tr)
+                pq = pt.pq_from_transform(tr)
+
+                # transform = self.transform_from_pq(pq)
+                # #transform = np.linalg.inv(transform)
+                # pq = self.pq_from_transform(transform)
+          
+                t.transform.translation.x = pq[0]
+                t.transform.translation.y = pq[1]
+                t.transform.translation.z = pq[2]
+                
+                # fixes translation
+                # t.transform.translation.x = -pq[1]
+                # t.transform.translation.y = -pq[2]
+                # t.transform.translation.z = pq[0]
+
+                # t.transform.translation.x = 1.0
+                # t.transform.translation.y = 0.0
+                # t.transform.translation.z = 0.0
+
+                t.transform.rotation.x = pq[4]
+                t.transform.rotation.y = pq[5]
+                t.transform.rotation.z = pq[6]
+                t.transform.rotation.w = pq[3]
+                # t.transform.rotation.x = 0
+                # t.transform.rotation.y = 0
+                # t.transform.rotation.z = 0
+                # t.transform.rotation.w = 1
+                # Send the transformation
+                self.tf_broadcaster.sendTransform(t)
+
+
+
+
         # self.place_recognition_publisher.publish(marker)
         self.pnp_estimate_publisher.publish(poses)
+        self.pc_publisher.publish(self.pointcloud_msg)
+
+    def point_cloud(self, points, parent_frame):
+        """ Creates a point cloud message.
+        Args:
+            points: Nx3 array of xyz positions.
+            parent_frame: frame in which the point cloud is defined
+        Returns:
+            sensor_msgs/PointCloud2 message
+        Code source:
+            https://gist.github.com/pgorczak/5c717baa44479fa064eb8d33ea4587e0
+        """
+        ros_dtype = PointField.FLOAT32
+        dtype = np.float32
+        itemsize = np.dtype(dtype).itemsize  # A 32-bit float takes 4 bytes.
+
+        data = points.astype(dtype).tobytes()
+        fields = [PointField(
+            name=n, offset=i * itemsize, datatype=ros_dtype, count=1)
+            for i, n in enumerate('xyz')]
+        header = Header(frame_id=parent_frame)
+
+        return PointCloud2(
+            header=header,
+            height=1,
+            width=points.shape[0],
+            is_dense=False,
+            is_bigendian=False,
+            fields=fields,
+            # Every point consists of three float32s.
+            point_step=(itemsize * 3),
+            row_step=(itemsize * 3 * points.shape[0]),
+            data=data
+        )
+    
+    def qvec2rotmat(self, qvec) -> np.ndarray:
+        return np.array([[
+            1 - 2 * qvec[2]**2 - 2 * qvec[3]**2,
+            2 * qvec[1] * qvec[2] - 2 * qvec[0] * qvec[3],
+            2 * qvec[3] * qvec[1] + 2 * qvec[0] * qvec[2]
+        ],
+            [
+            2 * qvec[1] * qvec[2] + 2 * qvec[0] * qvec[3],
+            1 - 2 * qvec[1]**2 - 2 * qvec[3]**2,
+            2 * qvec[2] * qvec[3] - 2 * qvec[0] * qvec[1]
+        ],
+            [
+            2 * qvec[3] * qvec[1] - 2 * qvec[0] * qvec[2],
+            2 * qvec[2] * qvec[3] + 2 * qvec[0] * qvec[1],
+            1 - 2 * qvec[1]**2 - 2 * qvec[2]**2
+        ]])
+
+    def transform_from_pq(self, pq) -> np.ndarray:
+        R = self.qvec2rotmat(pq[3:])
+        t = np.array([pq[:3]]).T
+        T = np.hstack((R, t))
+        T = np.vstack((T, np.array([0, 0, 0, 1])))
+        return T
+    def pq_from_transform(self, T) -> np.ndarray:
+        p: np.ndarray = T[:3, 3]
+        q = self.rotmat2qvec(T[:3, :3])
+        return np.concatenate((p, q))
+    
+    def rotmat2qvec(self, R) -> np.ndarray:
+        Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
+        K = np.array([[Rxx - Ryy - Rzz, 0, 0, 0], [
+            Ryx + Rxy, Ryy - Rxx - Rzz, 0, 0
+        ], [Rzx + Rxz, Rzy + Ryz, Rzz - Rxx - Ryy, 0],
+                    [Ryz - Rzy, Rzx - Rxz, Rxy - Ryx, Rxx + Ryy + Rzz]]) / 3.0
+        eigvals, eigvecs = np.linalg.eigh(K)
+        qvec = eigvecs[[3, 0, 1, 2], np.argmax(eigvals)]
+        if qvec[0] < 0:
+            qvec *= -1
+        return qvec
 
 
 def np2point_msg(np_point):

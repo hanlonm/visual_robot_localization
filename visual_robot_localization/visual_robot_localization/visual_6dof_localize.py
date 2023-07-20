@@ -56,7 +56,7 @@ class VisualPoseEstimator:
         self.ransac_thresh = ransac_thresh
         self.db_name_to_id = {image.name: i for i, image in self.reconstruction.images.items()}
 
-    def estimate_pose(self, query_img, topk, covisibility_clustering = True, exclude_best_match = False):
+    def estimate_pose(self, query_img, topk, covisibility_clustering = False, exclude_best_match = False):
 
         # Retrieve topk similar gallery images
         ksmallest_filenames, _, ksmallest_odometries = self.pr_querier.match(query_img, topk)
@@ -73,7 +73,7 @@ class VisualPoseEstimator:
         for n in ksmallest_filenames:
             if "mapping/"+n not in self.db_name_to_id:
                 #print(n)
-                print('Image {n} was retrieved but not in database')
+                print(f"Image {n} was retrieved but not in database")
                 continue
             db_ids.append(self.db_name_to_id["mapping/"+n])
 
@@ -157,8 +157,11 @@ class VisualPoseEstimator:
             points3D_ids = np.array([p.point3D_id if p.has_point3D() else -1
                                     for p in image.points2D])
             
-            valid = np.where(matches > -1)[0]
-            valid = valid[points3D_ids[matches[valid]] != -1]
+            try:
+                valid = np.where(matches > -1)[0]
+                valid = valid[points3D_ids[matches[valid]] != -1]
+            except:
+                continue
 
             for idx in valid:
                 id_3D = points3D_ids[matches[idx]]
