@@ -4,7 +4,7 @@ SCRIPT=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT")
 
 ROS_DISTRO="foxy"
-BASE_IMAGE="ros:$ROS_DISTRO-ros-base"
+BASE_IMAGE="osrf/ros:$ROS_DISTRO-desktop"
 IMAGE_NAME="visual_robot_localization:0.0.1"
 
 while getopts r:b:t: flag

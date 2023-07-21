@@ -5,13 +5,14 @@ services:
     network_mode: "host"
     ipc: "host"
     pid: "host"
-    
+    stdin_open: true
+    tty: true
     environment:
       - SDL_VIDEODRIVER=x11
       - DISPLAY=${DISPLAY}
       - NVIDIA_VISIBLE_DEVICES=all
       - "ROS_DOMAIN_ID=42"
-      - "FASTRTPS_DEFAULT_PROFILES_FILE=/opt/visual_robot_localization/docker/fastrtps-profile.xml"
+      - "FASTRTPS_DEFAULT_PROFILES_FILE=/opt/visual_robot_localization/networking/fastrtps-profile.xml"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /etc/localtime:/etc/localtime
@@ -24,12 +25,13 @@ services:
       - type: bind
         source: ${HOME}/Hierarchical-Localization/datasets/
         target: /opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/
-      - .:/opt/visual_robot_localization/docker
+      - ./networking:/opt/visual_robot_localization/networking
+      - ./../visualization:/opt/visual_robot_localization/visualization
     shm_size: 8gb
     runtime: nvidia
     container_name: visual_robot_localization
 
-    command: bash -c ". /opt/ros/foxy/setup.sh && pip install pytransform3d &&colcon build && . install/setup.sh && nvidia-smi && echo $ROS_DOMAIN_ID && ros2 launch visual_robot_localization DLAB_Test.launch.py"
+    command: bash -c ". /opt/ros/foxy/setup.sh && colcon build && . install/setup.sh && nvidia-smi && echo $ROS_DOMAIN_ID && ros2 launch visual_robot_localization DLAB_Test.launch.py"
 
   ros1_bridge:
     image: ros:foxy-ros1-bridge
@@ -41,9 +43,7 @@ services:
       - "ROS_HOSTNAME=localhost"
       - "ROS_MASTER_URI=http://localhost:11311"
       - "ROS_DOMAIN_ID=42"
-      - "FASTRTPS_DEFAULT_PROFILES_FILE=/opt/visual_robot_localization/docker/fastrtps-profile.xml"
-      #- "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
+      - "FASTRTPS_DEFAULT_PROFILES_FILE=/opt/visual_robot_localization/networking/fastrtps-profile.xml"
     volumes:
-      - .:/opt/visual_robot_localization/docker
-    # user: "${UID}:${GID}"
+      - ./networking:/opt/visual_robot_localization/networking
     command:  ros2 run ros1_bridge dynamic_bridge #--show-introspection

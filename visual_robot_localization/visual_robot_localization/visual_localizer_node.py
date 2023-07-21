@@ -14,12 +14,6 @@ from sensor_msgs.msg import PointCloud2, PointField
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 
-from pytransform3d import transformations as pt
-
-
-
-
-
 
 from visual_localization_interfaces.msg import VisualPoseEstimate
 from visual_localization_interfaces.msg import VisualLocalizerStatus
@@ -105,11 +99,6 @@ class VisualLocalizer(Node):
         self.pc_publisher = self.create_publisher(PointCloud2, 'map_pointcloud', 10)
         # Initialize the transform broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
-
-        self.T_cam_base = pt.transform_from(
-                np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0,
-                                                               0.0]]),
-                np.array([0, 0.0, 0.0]))
 
         # Visualization publishers
         if self.visualize_estimates:
@@ -206,11 +195,29 @@ class VisualLocalizer(Node):
             best_estimate, best_cluster_idx = self.choose_best_estimate(ret)
 
             true_delay = Duration(nanoseconds = time.time_ns()-computation_start_time)
-            visual_pose_estimate_msg, pose_msg = self._construct_visual_pose_msg(best_estimate, image_msg.header.stamp, true_delay)
+            visual_pose_estimate_msg = self._construct_visual_pose_msg(best_estimate, image_msg.header.stamp, true_delay)
             
             self.vloc_publisher.publish(visual_pose_estimate_msg)
 
-            self.vloc_pose_publisher.publish(pose_msg)
+            # publish transforms
+            Tr_cam_colmap = TransformStamped()
+            Tr_cam_colmap.header.stamp = self.get_clock().now().to_msg()
+            Tr_cam_colmap.header.frame_id = 'colmap'
+            Tr_cam_colmap.child_frame_id = "cam"
+
+            p = best_estimate['tvec']
+            q = best_estimate['qvec']
+            pq = np.concatenate([p, q])
+
+            Tr_cam_colmap.transform.translation.x = pq[0]
+            Tr_cam_colmap.transform.translation.y = pq[1]
+            Tr_cam_colmap.transform.translation.z = pq[2]
+        
+            Tr_cam_colmap.transform.rotation.x = pq[4]
+            Tr_cam_colmap.transform.rotation.y = pq[5]
+            Tr_cam_colmap.transform.rotation.z = pq[6]
+            Tr_cam_colmap.transform.rotation.w = pq[3]
+            self.tf_broadcaster.sendTransform(Tr_cam_colmap)
 
             if self.visualize_estimates:
                 self._estimate_visualizer(ret, image_msg.header.stamp, best_cluster_idx)
@@ -227,11 +234,11 @@ class VisualLocalizer(Node):
             best_pose_msg = PoseWithCovariance()
             pnp_success = Bool(data=False)
 
-        visual_pose_estimate_msg = VisualPoseEstimate(header=Header(frame_id='map', stamp=timestamp),
+        visual_pose_estimate_msg = VisualPoseEstimate(header=Header(frame_id='colmap', stamp=timestamp),
                                                     pnp_success = pnp_success,
                                                     computation_delay=vloc_computation_delay.to_msg(),
                                                     pose=best_pose_msg)
-        return visual_pose_estimate_msg, best_pose_msg
+        return visual_pose_estimate_msg
 
 
     def choose_best_estimate(self, visual_pose_estimates):
@@ -251,7 +258,7 @@ class VisualLocalizer(Node):
 
     def _estimate_visualizer(self, ret, timestamp, best_pose_idx):
         # Place recognition & PnP localization visualizations
-        header = Header(frame_id='map', stamp=timestamp)
+        header = Header(frame_id='colmap', stamp=timestamp)
         # marker = Marker(header=header, scale=Vector3(x=1.0,y=1.0,z=1.0), type=8, action=0, color=ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0))
         poses = PoseArray(header=header, poses=[])
         for i, estimate in enumerate(ret['pnp_estimates']):
@@ -268,71 +275,9 @@ class VisualLocalizer(Node):
             #     place_reg_position = np2point_msg(ret['place_recognition'][idx]['tvec'])
             #     marker.points.append(place_reg_position)
 
-            if estimate['success'] and i == best_pose_idx:
+            if estimate['success']:
                 pose_msg = Pose(position=np2point_msg(estimate['tvec']), orientation=np2quat_msg(estimate['qvec']))
                 poses.poses.append(pose_msg)
-
-                static_t = TransformStamped()
-                static_t.header.stamp = self.get_clock().now().to_msg()
-                static_t.header.frame_id = 'map'
-                static_t.child_frame_id = "colmap"
-                pq = pt.pq_from_transform(self.T_cam_base)
-                static_t.transform.translation.x = pq[0]
-                static_t.transform.translation.y = pq[1]
-                static_t.transform.translation.z = pq[2]
-                static_t.transform.rotation.x = pq[4]
-                static_t.transform.rotation.y = pq[5]
-                static_t.transform.rotation.z = pq[6]
-                static_t.transform.rotation.w = pq[3]
-
-                self.tf_broadcaster.sendTransform(static_t)
-
-                t = TransformStamped()
-                t.header.stamp = self.get_clock().now().to_msg()
-                t.header.frame_id = 'colmap'
-                t.child_frame_id = "cam"
-
-                
-
-                p = estimate['tvec']
-                q = estimate['qvec']
-                pq = np.concatenate([p, q])
-
-                tr = pt.transform_from_pq(pq)
-                # tr = pt.invert_transform(tr)
-                # tr = pt.invert_transform(tr)
-                pq = pt.pq_from_transform(tr)
-
-                # transform = self.transform_from_pq(pq)
-                # #transform = np.linalg.inv(transform)
-                # pq = self.pq_from_transform(transform)
-          
-                t.transform.translation.x = pq[0]
-                t.transform.translation.y = pq[1]
-                t.transform.translation.z = pq[2]
-                
-                # fixes translation
-                # t.transform.translation.x = -pq[1]
-                # t.transform.translation.y = -pq[2]
-                # t.transform.translation.z = pq[0]
-
-                # t.transform.translation.x = 1.0
-                # t.transform.translation.y = 0.0
-                # t.transform.translation.z = 0.0
-
-                t.transform.rotation.x = pq[4]
-                t.transform.rotation.y = pq[5]
-                t.transform.rotation.z = pq[6]
-                t.transform.rotation.w = pq[3]
-                # t.transform.rotation.x = 0
-                # t.transform.rotation.y = 0
-                # t.transform.rotation.z = 0
-                # t.transform.rotation.w = 1
-                # Send the transformation
-                self.tf_broadcaster.sendTransform(t)
-
-
-
 
         # self.place_recognition_publisher.publish(marker)
         self.pnp_estimate_publisher.publish(poses)

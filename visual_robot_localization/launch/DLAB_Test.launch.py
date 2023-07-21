@@ -32,6 +32,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='local_matcher_name',
+            # default_value='superglue'
             default_value='NN-superpoint'
         ),
         launch.actions.DeclareLaunchArgument(
@@ -145,6 +146,11 @@ def generate_launch_description():
             arguments=['0', '0', '0', '0.5', '-0.5',
                        '0.5', '0.5', 'map', 'colmap']
         ),
+        # launch_ros.actions.Node(
+        #     package='rviz2',
+        #     executable='rviz2',
+        #     arguments=["-d /opt/visual_robot_localization/visualization/loc_viz.rviz"]
+        # ),
     ])
     return ld
 
