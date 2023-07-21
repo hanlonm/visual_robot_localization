@@ -1,74 +1,79 @@
 import launch
 import launch_ros.actions
 
+
 def generate_launch_description():
     environment = "00195"
     ld = launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(
-	name='pose_publish_topic',
-    	default_value='/spot/visual_pose_estimate'
+            name='pose_publish_topic',
+            default_value='/spot/visual_pose_estimate'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='camera_topic',
-    	# default_value='/spot/rgb/image_rect_color'
-    	default_value='/image_raw'
+            name='camera_topic',
+            # default_value='/spot/rgb/image_rect_color'
+            default_value='/image_raw'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='base_frame',
-    	default_value='spot'
+            name='base_frame',
+            default_value='spot'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='sensor_frame',
-    	default_value='spot/rgb_front'
-        ),
-	launch.actions.DeclareLaunchArgument(
-    	name='global_extractor_name',
-    	default_value='netvlad'
-        ),
-	launch.actions.DeclareLaunchArgument(
-    	name='local_extractor_name',
-    	default_value='superpoint_aachen'
-        ),
-	launch.actions.DeclareLaunchArgument(
-    	name='local_matcher_name',
-    	default_value='NN-superpoint'
+            name='sensor_frame',
+            default_value='spot/rgb_front'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='gallery_global_descriptor_path',
-    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/global-feats-netvlad.h5'
+            name='global_extractor_name',
+            default_value='netvlad'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='gallery_local_descriptor_path',
-    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/feats-superpoint-n4096-r1024.h5'
+            name='local_extractor_name',
+            default_value='superpoint_aachen'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='image_gallery_path',
-    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/{environment}/mapping'
+            name='local_matcher_name',
+            default_value='NN-superpoint'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='gallery_sfm_path',
-    	default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/reconstruction'
+            name='gallery_global_descriptor_path',
+            default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/global-feats-netvlad.h5'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='compensate_sensor_offset',
-    	default_value='False'
+            name='gallery_local_descriptor_path',
+            default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/feats-superpoint-n4096-r1024.h5'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='localization_frequence',
-    	default_value='3.0'
+            name='image_gallery_path',
+            default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/{environment}/mapping'
+        ),
+        launch.actions.DeclareLaunchArgument(
+            name='gallery_sfm_path',
+            default_value=f'/opt/visual_robot_localization/src/visual_robot_localization/hloc_outputs/{environment}/reconstruction'
+        ),
+        launch.actions.DeclareLaunchArgument(
+            name='cam_string',
+            default_value='PINHOLE 1280 720 609.5238037109375 610.1694946289062 640 360'
+        ),
+        launch.actions.DeclareLaunchArgument(
+            name='compensate_sensor_offset',
+            default_value='False'
+        ),
+        launch.actions.DeclareLaunchArgument(
+            name='localization_frequence',
+            default_value='3.0'
         ),
         # If the localization frequence is in ROS or wall time
         launch.actions.DeclareLaunchArgument(
-    	name='use_sim_time',
-    	default_value='False'
+            name='use_sim_time',
+            default_value='False'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='top_k_matches',
-    	default_value='20'
+            name='top_k_matches',
+            default_value='5'
         ),
         launch.actions.DeclareLaunchArgument(
-    	name='ransac_thresh',
-    	default_value='12'
+            name='ransac_thresh',
+            default_value='12'
         ),
         launch_ros.actions.Node(
             package='visual_robot_localization',
@@ -77,7 +82,7 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[
                 {
-    		     'use_sim_time': launch.substitutions.LaunchConfiguration('use_sim_time')
+                    'use_sim_time': launch.substitutions.LaunchConfiguration('use_sim_time')
                 },
                 {
                     'pose_publish_topic': launch.substitutions.LaunchConfiguration('pose_publish_topic')
@@ -113,6 +118,9 @@ def generate_launch_description():
                     'gallery_sfm_path': launch.substitutions.LaunchConfiguration('gallery_sfm_path')
                 },
                 {
+                    'cam_string': launch.substitutions.LaunchConfiguration('cam_string')
+                },
+                {
                     'compensate_sensor_offset': launch.substitutions.LaunchConfiguration('compensate_sensor_offset')
                 },
                 {
@@ -125,7 +133,18 @@ def generate_launch_description():
                     'ransac_thresh': launch.substitutions.LaunchConfiguration('ransac_thresh')
                 }
             ]
-        )
+        ),
+        launch_ros.actions.Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['0', '0', '0', '0', '0', '0', '1', 'world', 'map']
+        ),
+        launch_ros.actions.Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['0', '0', '0', '0.5', '-0.5',
+                       '0.5', '0.5', 'map', 'colmap']
+        ),
     ])
     return ld
 
