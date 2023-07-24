@@ -198,26 +198,26 @@ class VisualLocalizer(Node):
             visual_pose_estimate_msg = self._construct_visual_pose_msg(best_estimate, image_msg.header.stamp, true_delay)
             
             self.vloc_publisher.publish(visual_pose_estimate_msg)
+            if best_estimate is not None:
+                # publish transforms
+                Tr_cam_colmap = TransformStamped()
+                Tr_cam_colmap.header.stamp = self.get_clock().now().to_msg()
+                Tr_cam_colmap.header.frame_id = 'colmap'
+                Tr_cam_colmap.child_frame_id = "cam"
 
-            # publish transforms
-            Tr_cam_colmap = TransformStamped()
-            Tr_cam_colmap.header.stamp = self.get_clock().now().to_msg()
-            Tr_cam_colmap.header.frame_id = 'colmap'
-            Tr_cam_colmap.child_frame_id = "cam"
+                p = best_estimate['tvec']
+                q = best_estimate['qvec']
+                pq = np.concatenate([p, q])
 
-            p = best_estimate['tvec']
-            q = best_estimate['qvec']
-            pq = np.concatenate([p, q])
-
-            Tr_cam_colmap.transform.translation.x = pq[0]
-            Tr_cam_colmap.transform.translation.y = pq[1]
-            Tr_cam_colmap.transform.translation.z = pq[2]
-        
-            Tr_cam_colmap.transform.rotation.x = pq[4]
-            Tr_cam_colmap.transform.rotation.y = pq[5]
-            Tr_cam_colmap.transform.rotation.z = pq[6]
-            Tr_cam_colmap.transform.rotation.w = pq[3]
-            self.tf_broadcaster.sendTransform(Tr_cam_colmap)
+                Tr_cam_colmap.transform.translation.x = pq[0]
+                Tr_cam_colmap.transform.translation.y = pq[1]
+                Tr_cam_colmap.transform.translation.z = pq[2]
+            
+                Tr_cam_colmap.transform.rotation.x = pq[4]
+                Tr_cam_colmap.transform.rotation.y = pq[5]
+                Tr_cam_colmap.transform.rotation.z = pq[6]
+                Tr_cam_colmap.transform.rotation.w = pq[3]
+                self.tf_broadcaster.sendTransform(Tr_cam_colmap)
 
             if self.visualize_estimates:
                 self._estimate_visualizer(ret, image_msg.header.stamp, best_cluster_idx)
