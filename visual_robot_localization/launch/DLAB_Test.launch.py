@@ -11,8 +11,8 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='camera_topic',
-            # default_value='/spot/rgb/image_rect_color'
-            default_value='/image_raw'
+            default_value='/spot/rgb/image_rect_color'
+            # default_value='/image_raw'
         ),
         launch.actions.DeclareLaunchArgument(
             name='base_frame',
@@ -61,7 +61,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='localization_frequence',
-            default_value='3.0'
+            default_value='1.0'
         ),
         # If the localization frequence is in ROS or wall time
         launch.actions.DeclareLaunchArgument(
