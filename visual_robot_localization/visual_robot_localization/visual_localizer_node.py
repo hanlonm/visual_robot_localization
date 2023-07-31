@@ -11,8 +11,12 @@ from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose, Point, Quaternion, PoseArray, PoseWithCovariance, Vector3
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import PointCloud2, PointField
-from tf2_ros import TransformBroadcaster
+from tf2_ros import TransformBroadcaster, TransformListener
+from tf2_ros.buffer import Buffer
+
 from geometry_msgs.msg import TransformStamped
+
+import pytransform3d.transformations as pt
 
 
 from visual_localization_interfaces.msg import VisualPoseEstimate
@@ -99,6 +103,8 @@ class VisualLocalizer(Node):
         self.pc_publisher = self.create_publisher(PointCloud2, 'map_pointcloud', 10)
         # Initialize the transform broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Visualization publishers
         if self.visualize_estimates:
@@ -199,28 +205,85 @@ class VisualLocalizer(Node):
             
             self.vloc_publisher.publish(visual_pose_estimate_msg)
             if best_estimate is not None:
-                # publish transforms
-                Tr_cam_colmap = TransformStamped()
-                Tr_cam_colmap.header.stamp = self.get_clock().now().to_msg()
-                Tr_cam_colmap.header.frame_id = 'colmap'
-                Tr_cam_colmap.child_frame_id = "cam"
-
                 p = best_estimate['tvec']
                 q = best_estimate['qvec']
                 pq = np.concatenate([p, q])
 
-                Tr_cam_colmap.transform.translation.x = pq[0]
-                Tr_cam_colmap.transform.translation.y = pq[1]
-                Tr_cam_colmap.transform.translation.z = pq[2]
-            
-                Tr_cam_colmap.transform.rotation.x = pq[4]
-                Tr_cam_colmap.transform.rotation.y = pq[5]
-                Tr_cam_colmap.transform.rotation.z = pq[6]
-                Tr_cam_colmap.transform.rotation.w = pq[3]
-                self.tf_broadcaster.sendTransform(Tr_cam_colmap)
+                # This is where I have no idea what transformations are happening
+                T_rotated_colmap = pt.transform_from(
+                        np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]]),
+                        np.array([0, 0.0, 0.0]))
+                T_rotated_cam = pt.transform_from_pq(pq)
+                T_cam_colmap = np.linalg.inv(T_rotated_cam) @ T_rotated_colmap
+                T_colmap_cam = pt.invert_transform(T_cam_colmap)
+
+                tf_rotated_colmap = self.transform_to_tf(T_frameId_childFrameId=pt.invert_transform(T_rotated_colmap), frame_id="colmap", child_frame_id="rotated")
+                self.tf_broadcaster.sendTransform(tf_rotated_colmap)
+
+                tf_cam_colmap = self.transform_to_tf(T_frameId_childFrameId=T_colmap_cam, frame_id="colmap", child_frame_id="loc_cam")
+                self.tf_broadcaster.sendTransform(tf_cam_colmap)
+                
+                try:
+                    tf_map_colmap: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="map",
+                        source_frame="colmap",
+                        time=rclpy.time.Time())
+
+                    tf_odom_hand: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="odom",
+                        source_frame="hand",
+                        time=rclpy.time.Time())
+                    T_map_colmap = self.tf_to_transform(tf_map_colmap)
+                    T_map_cam = T_map_colmap @ T_colmap_cam
+
+                    pub_time = tf_odom_hand.header.stamp
+                    T_odom_hand = self.tf_to_transform(tf_odom_hand)
+                    T_odom_map = T_odom_hand @ pt.invert_transform(T_map_cam)
+                    T_map_odom = pt.invert_transform(T_odom_map)
+                    tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=T_map_odom, frame_id="map", child_frame_id="odom", time=pub_time)
+                    self.tf_broadcaster.sendTransform(tf_odom_map)                    
+                    
+                except Exception as ex:
+                    self.get_logger().info(
+                        f'Could not transform: {ex}')
+                    return
+
 
             if self.visualize_estimates:
                 self._estimate_visualizer(ret, image_msg.header.stamp, best_cluster_idx)
+
+    def tf_to_transform(self, tf: TransformStamped) -> np.ndarray:
+        pq = np.array([tf.transform.translation.x,
+                       tf.transform.translation.y,
+                       tf.transform.translation.z,
+                       tf.transform.rotation.w,
+                       tf.transform.rotation.x,
+                       tf.transform.rotation.y,
+                       tf.transform.rotation.z])
+        
+        return pt.transform_from_pq(pq)
+    
+    def transform_to_tf(self, T_frameId_childFrameId: np.ndarray, frame_id: str, child_frame_id: str, time=None) -> TransformStamped:
+        
+        pq = pt.pq_from_transform(T_frameId_childFrameId)
+
+        tf = TransformStamped()
+        if time == None:
+            tf.header.stamp = self.get_clock().now().to_msg()
+            print(self.get_clock().now().to_msg())
+        else:
+            tf.header.stamp = time
+        tf.header.frame_id = frame_id
+        tf.child_frame_id = child_frame_id
+        tf.transform.translation.x = pq[0]
+        tf.transform.translation.y = pq[1]
+        tf.transform.translation.z = pq[2]
+    
+        tf.transform.rotation.x = pq[4]
+        tf.transform.rotation.y = pq[5]
+        tf.transform.rotation.z = pq[6]
+        tf.transform.rotation.w = pq[3]
+        return tf
 
 
     def _construct_visual_pose_msg(self, best_estimate, timestamp, vloc_computation_delay):
@@ -258,7 +321,7 @@ class VisualLocalizer(Node):
 
     def _estimate_visualizer(self, ret, timestamp, best_pose_idx):
         # Place recognition & PnP localization visualizations
-        header = Header(frame_id='colmap', stamp=timestamp)
+        header = Header(frame_id='loc_cam', stamp=timestamp)
         # marker = Marker(header=header, scale=Vector3(x=1.0,y=1.0,z=1.0), type=8, action=0, color=ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0))
         poses = PoseArray(header=header, poses=[])
         for i, estimate in enumerate(ret['pnp_estimates']):

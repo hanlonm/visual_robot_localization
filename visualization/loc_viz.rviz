@@ -56,11 +56,89 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        cam:
+        back:
+          Value: true
+        back_fisheye:
+          Value: true
+        base_link:
+          Value: true
+        body:
           Value: true
         colmap:
           Value: false
+        flat_body:
+          Value: true
+        front_left_foot:
+          Value: true
+        front_left_hip:
+          Value: true
+        front_left_lower_leg:
+          Value: true
+        front_left_upper_leg:
+          Value: true
+        front_rail:
+          Value: true
+        front_right_foot:
+          Value: true
+        front_right_hip:
+          Value: true
+        front_right_lower_leg:
+          Value: true
+        front_right_upper_leg:
+          Value: true
+        frontleft:
+          Value: true
+        frontleft_fisheye:
+          Value: true
+        frontright:
+          Value: true
+        frontright_fisheye:
+          Value: true
+        gpe:
+          Value: true
+        hand:
+          Value: true
+        hand_cam:
+          Value: true
+        head:
+          Value: true
+        left:
+          Value: true
+        left_fisheye:
+          Value: true
+        link_wr1:
+          Value: true
         map:
+          Value: true
+        odom:
+          Value: true
+        real_front_rail:
+          Value: true
+        real_rear_rail:
+          Value: true
+        rear_left_foot:
+          Value: true
+        rear_left_hip:
+          Value: true
+        rear_left_lower_leg:
+          Value: true
+        rear_left_upper_leg:
+          Value: true
+        rear_rail:
+          Value: true
+        rear_right_foot:
+          Value: true
+        rear_right_hip:
+          Value: true
+        rear_right_lower_leg:
+          Value: true
+        rear_right_upper_leg:
+          Value: true
+        right:
+          Value: true
+        right_fisheye:
+          Value: true
+        vision:
           Value: true
         world:
           Value: false
@@ -73,7 +151,68 @@ Visualization Manager:
         world:
           map:
             colmap:
-              cam:
+              hand_cam:
+                {}
+            odom:
+              body:
+                base_link:
+                  {}
+                flat_body:
+                  {}
+                front_left_foot:
+                  {}
+                front_left_hip:
+                  front_left_upper_leg:
+                    front_left_lower_leg:
+                      {}
+                front_rail:
+                  {}
+                front_right_foot:
+                  {}
+                front_right_hip:
+                  front_right_upper_leg:
+                    front_right_lower_leg:
+                      {}
+                hand:
+                  {}
+                head:
+                  back:
+                    back_fisheye:
+                      {}
+                  frontleft:
+                    frontleft_fisheye:
+                      {}
+                  frontright:
+                    frontright_fisheye:
+                      {}
+                  left:
+                    left_fisheye:
+                      {}
+                  right:
+                    right_fisheye:
+                      {}
+                link_wr1:
+                  {}
+                real_front_rail:
+                  real_rear_rail:
+                    {}
+                rear_left_foot:
+                  {}
+                rear_left_hip:
+                  rear_left_upper_leg:
+                    rear_left_lower_leg:
+                      {}
+                rear_rail:
+                  {}
+                rear_right_foot:
+                  {}
+                rear_right_hip:
+                  rear_right_upper_leg:
+                    rear_right_lower_leg:
+                      {}
+                vision:
+                  {}
+              gpe:
                 {}
       Update Interval: 0
       Value: true
@@ -122,7 +261,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /spot/rgb/image_rect_color
+        Value: /spot/camera/hand_color/image
       Value: true
     - Alpha: 1
       Arrow Length: 0.30000001192092896
@@ -247,25 +386,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 13.786300659179688
+      Distance: 16.99839973449707
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -5.196478843688965
-        Y: -14.188535690307617
-        Z: -1.3066654205322266
+        X: 4.695434093475342
+        Y: -2.344656229019165
+        Z: 0.7373738288879395
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2554005980491638
+      Pitch: 0.5704003572463989
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.845432162284851
+      Yaw: 3.315434455871582
     Saved: ~
 Window Geometry:
   Displays:
