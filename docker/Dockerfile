@@ -31,5 +31,6 @@ RUN /bin/bash -c "python3 setup.py install"
 WORKDIR /opt/visual_robot_localization/
 RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash; \
 		  colcon build" 
+RUN mkdir -p /root/.cache/torch/hub/netvlad && wget -O /root/.cache/torch/hub/netvlad/VGG16-NetVLAD-Pitts30K.mat https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.mat
 		  
 COPY ./docker/content/ros_entrypoint.sh /

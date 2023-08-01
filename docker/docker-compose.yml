@@ -27,12 +27,12 @@ services:
         target: /opt/visual_robot_localization/src/visual_robot_localization/hloc_datasets/
       - ./networking:/opt/visual_robot_localization/networking
       - ./../visualization:/opt/visual_robot_localization/visualization
-      - ./content/models/netvlad:/root/.cache/torch/hub/netvlad
+  
     shm_size: 8gb
     runtime: nvidia
     container_name: visual_robot_localization
 
-    command: bash -c ". /opt/ros/foxy/setup.sh && pip install pytransform3d && colcon build && . install/setup.sh && nvidia-smi && echo $ROS_DOMAIN_ID && ros2 launch visual_robot_localization Spot_DLAB.launch.py"
+    command: bash -c ". /opt/ros/foxy/setup.sh && colcon build && . install/setup.sh && nvidia-smi && echo $ROS_DOMAIN_ID && ros2 launch visual_robot_localization Spot_DLAB.launch.py"
 
   ros1_bridge:
     image: ros:foxy-ros1-bridge

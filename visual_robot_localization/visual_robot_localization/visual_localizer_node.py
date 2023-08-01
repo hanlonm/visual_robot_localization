@@ -7,12 +7,14 @@ from rclpy.duration import Duration
 
 
 from std_msgs.msg import ColorRGBA, Header, Bool
+from std_srvs.srv import SetBool
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose, Point, Quaternion, PoseArray, PoseWithCovariance, Vector3
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import PointCloud2, PointField
-from tf2_ros import TransformBroadcaster, TransformListener
+from tf2_ros import TransformBroadcaster, TransformListener, StaticTransformBroadcaster
 from tf2_ros.buffer import Buffer
+import tf2_geometry_msgs
 
 from geometry_msgs.msg import TransformStamped
 
@@ -101,10 +103,23 @@ class VisualLocalizer(Node):
             10)
         
         self.pc_publisher = self.create_publisher(PointCloud2, 'map_pointcloud', 10)
+
         # Initialize the transform broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
+
+
+        # Transforms
+        self.T_rotated_colmap = pt.transform_from(
+                        np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]]),
+                        np.array([0, 0.0, 0.0]))
+        self.T_colmap_rotated = pt.invert_transform(self.T_rotated_colmap)
+        self.tf_rotated_colmap = self.transform_to_tf(T_frameId_childFrameId=self.T_colmap_rotated, frame_id="colmap", child_frame_id="rotated")
+
+        self.T_colmap_cam = None
+        self.T_map_odom = None
 
         # Visualization publishers
         if self.visualize_estimates:
@@ -119,6 +134,9 @@ class VisualLocalizer(Node):
             10)
 
         self.timer = self.create_timer( 1/self.pr_freq , self.computation_callback, callback_group = ReentrantCallbackGroup())
+        self.tf_timer = self.create_timer( 1/10 , self.publish_transforms, callback_group = ReentrantCallbackGroup())
+
+        self.update_loc = True
 
         self.lock = threading.Lock()
         self.latest_image = None
@@ -166,6 +184,15 @@ class VisualLocalizer(Node):
                                             0.0,    0.0,    0.0,    or_cov,    or_cov,    or_var]
         self.vloc_estimate_covariance = np.array(self.vloc_estimate_covariance)
 
+        self.update_localization_srv = self.create_service(SetBool, 'updtate_localization', self.update_localization_callback)
+
+    def update_localization_callback(self, request: SetBool.Request, response: SetBool.Response):
+        self.update_loc = request.data
+        self.get_logger().info(f'Localization publishing status: {self.update_loc}')
+        response.success = True
+        response.message = f'Localization publishing status: {self.update_loc}'
+        return response
+
     def camera_subscriber_callback(self, image_msg):
         '''
         Use the camera subscriber callback only for updating the image data
@@ -209,48 +236,60 @@ class VisualLocalizer(Node):
                 q = best_estimate['qvec']
                 pq = np.concatenate([p, q])
 
+                # print("start")
+                # print(pt.transform_from_pq(pq))
+                # print(pt.invert_transform(pt.transform_from_pq(pq)))
+
                 # This is where I have no idea what transformations are happening
-                T_rotated_colmap = pt.transform_from(
-                        np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]]),
-                        np.array([0, 0.0, 0.0]))
                 T_rotated_cam = pt.transform_from_pq(pq)
-                T_cam_colmap = np.linalg.inv(T_rotated_cam) @ T_rotated_colmap
-                T_colmap_cam = pt.invert_transform(T_cam_colmap)
+                self.T_colmap_cam = self.T_colmap_rotated @ T_rotated_cam
 
-                tf_rotated_colmap = self.transform_to_tf(T_frameId_childFrameId=pt.invert_transform(T_rotated_colmap), frame_id="colmap", child_frame_id="rotated")
-                self.tf_broadcaster.sendTransform(tf_rotated_colmap)
-
-                tf_cam_colmap = self.transform_to_tf(T_frameId_childFrameId=T_colmap_cam, frame_id="colmap", child_frame_id="loc_cam")
-                self.tf_broadcaster.sendTransform(tf_cam_colmap)
-                
                 try:
                     tf_map_colmap: TransformStamped = self.tf_buffer.lookup_transform(
                         target_frame="map",
                         source_frame="colmap",
                         time=rclpy.time.Time())
-
-                    tf_odom_hand: TransformStamped = self.tf_buffer.lookup_transform(
-                        target_frame="odom",
-                        source_frame="hand",
+                    
+                    tf_hand_odom: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="hand",
+                        source_frame="odom",
                         time=rclpy.time.Time())
                     T_map_colmap = self.tf_to_transform(tf_map_colmap)
-                    T_map_cam = T_map_colmap @ T_colmap_cam
+                    T_map_cam = T_map_colmap @ self.T_colmap_cam
 
-                    pub_time = tf_odom_hand.header.stamp
-                    T_odom_hand = self.tf_to_transform(tf_odom_hand)
-                    T_odom_map = T_odom_hand @ pt.invert_transform(T_map_cam)
-                    T_map_odom = pt.invert_transform(T_odom_map)
-                    tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=T_map_odom, frame_id="map", child_frame_id="odom", time=pub_time)
-                    self.tf_broadcaster.sendTransform(tf_odom_map)                    
+                    T_hand_odom = self.tf_to_transform(tf_hand_odom)
+
+                    self.T_map_odom =  T_map_cam @ T_hand_odom
+                                       
                     
                 except Exception as ex:
                     self.get_logger().info(
                         f'Could not transform: {ex}')
                     return
 
-
             if self.visualize_estimates:
                 self._estimate_visualizer(ret, image_msg.header.stamp, best_cluster_idx)
+
+    def publish_transforms(self):
+        self.tf_broadcaster.sendTransform(self.tf_rotated_colmap)
+        if self.T_colmap_cam is not None and self.T_map_odom is not None:
+            tf_cam_colmap = self.transform_to_tf(T_frameId_childFrameId=self.T_colmap_cam, frame_id="colmap", child_frame_id="loc_cam")
+            self.tf_broadcaster.sendTransform(tf_cam_colmap)
+            
+            if self.update_loc:
+                try:
+                    tf_hand_odom: TransformStamped = self.tf_buffer.lookup_transform(
+                            target_frame="hand",
+                            source_frame="odom",
+                            time=rclpy.time.Time())
+                    pub_time = tf_hand_odom.header.stamp
+                    tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=self.T_map_odom, frame_id="map", child_frame_id="odom", time=pub_time)
+                    self.tf_static_broadcaster.sendTransform(tf_odom_map)
+
+                except Exception as ex:
+                    self.get_logger().info(
+                        f'Could not transform: {ex}')
+                    return
 
     def tf_to_transform(self, tf: TransformStamped) -> np.ndarray:
         pq = np.array([tf.transform.translation.x,
@@ -270,7 +309,6 @@ class VisualLocalizer(Node):
         tf = TransformStamped()
         if time == None:
             tf.header.stamp = self.get_clock().now().to_msg()
-            print(self.get_clock().now().to_msg())
         else:
             tf.header.stamp = time
         tf.header.frame_id = frame_id
@@ -339,7 +377,8 @@ class VisualLocalizer(Node):
             #     marker.points.append(place_reg_position)
 
             if estimate['success']:
-                pose_msg = Pose(position=np2point_msg(estimate['tvec']), orientation=np2quat_msg(estimate['qvec']))
+                # pose_msg = Pose(position=np2point_msg(estimate['tvec']), orientation=np2quat_msg(estimate['qvec']))
+                pose_msg = Pose(position=np2point_msg([0.0,0.0,0.0]), orientation=np2quat_msg([1.0,0.0,0.0,0.0]))
                 poses.poses.append(pose_msg)
 
         # self.place_recognition_publisher.publish(marker)
@@ -378,46 +417,6 @@ class VisualLocalizer(Node):
             row_step=(itemsize * 3 * points.shape[0]),
             data=data
         )
-    
-    def qvec2rotmat(self, qvec) -> np.ndarray:
-        return np.array([[
-            1 - 2 * qvec[2]**2 - 2 * qvec[3]**2,
-            2 * qvec[1] * qvec[2] - 2 * qvec[0] * qvec[3],
-            2 * qvec[3] * qvec[1] + 2 * qvec[0] * qvec[2]
-        ],
-            [
-            2 * qvec[1] * qvec[2] + 2 * qvec[0] * qvec[3],
-            1 - 2 * qvec[1]**2 - 2 * qvec[3]**2,
-            2 * qvec[2] * qvec[3] - 2 * qvec[0] * qvec[1]
-        ],
-            [
-            2 * qvec[3] * qvec[1] - 2 * qvec[0] * qvec[2],
-            2 * qvec[2] * qvec[3] + 2 * qvec[0] * qvec[1],
-            1 - 2 * qvec[1]**2 - 2 * qvec[2]**2
-        ]])
-
-    def transform_from_pq(self, pq) -> np.ndarray:
-        R = self.qvec2rotmat(pq[3:])
-        t = np.array([pq[:3]]).T
-        T = np.hstack((R, t))
-        T = np.vstack((T, np.array([0, 0, 0, 1])))
-        return T
-    def pq_from_transform(self, T) -> np.ndarray:
-        p: np.ndarray = T[:3, 3]
-        q = self.rotmat2qvec(T[:3, :3])
-        return np.concatenate((p, q))
-    
-    def rotmat2qvec(self, R) -> np.ndarray:
-        Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
-        K = np.array([[Rxx - Ryy - Rzz, 0, 0, 0], [
-            Ryx + Rxy, Ryy - Rxx - Rzz, 0, 0
-        ], [Rzx + Rxz, Rzy + Ryz, Rzz - Rxx - Ryy, 0],
-                    [Ryz - Rzy, Rzx - Rxz, Rxy - Ryx, Rxx + Ryy + Rzz]]) / 3.0
-        eigvals, eigvecs = np.linalg.eigh(K)
-        qvec = eigvecs[[3, 0, 1, 2], np.argmax(eigvals)]
-        if qvec[0] < 0:
-            qvec *= -1
-        return qvec
 
 
 def np2point_msg(np_point):
