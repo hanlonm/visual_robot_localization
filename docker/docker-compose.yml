@@ -41,8 +41,8 @@ services:
     pid: "host"
 
     environment:
-      - "ROS_HOSTNAME=localhost"
-      - "ROS_MASTER_URI=http://localhost:11311"
+      - "ROS_HOSTNAME=${ROS_HOSTNAME}"
+      - "ROS_MASTER_URI=${ROS_MASTER_URI}"
       - "ROS_DOMAIN_ID=42"
       - "FASTRTPS_DEFAULT_PROFILES_FILE=/opt/visual_robot_localization/networking/fastrtps-profile.xml"
     volumes:
