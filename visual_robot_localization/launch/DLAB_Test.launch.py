@@ -3,7 +3,7 @@ import launch_ros.actions
 
 
 def generate_launch_description():
-    environment = "00195"
+    environment = "DLAB_3"
     ld = launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(
             name='pose_publish_topic',
