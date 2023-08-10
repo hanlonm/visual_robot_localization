@@ -70,7 +70,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='top_k_matches',
-            default_value='5'
+            default_value='20'
         ),
         launch.actions.DeclareLaunchArgument(
             name='ransac_thresh',
