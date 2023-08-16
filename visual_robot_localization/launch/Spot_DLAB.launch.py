@@ -146,6 +146,25 @@ def generate_launch_description():
             arguments=['0', '0', '0', '-0.5', '0.5',
                        '-0.5', '0.5', 'map', 'colmap']
         ),
+        launch_ros.actions.Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['-0.058', '0.020', '0.025', '-0.459', '0.459',
+                       '-0.538', '0.538', 'hand', 'hand_color_image_sensor']
+        ),
+        launch_ros.actions.Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['10.25209456', '2.39437442', '-1.0425929',  
+                       '0.7067652',  '-0.0051213', '-0.02284135', '0.70706082','map', 'loc_tag']
+        ),
+        launch_ros.actions.Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['0.0', '0.0', '0.0',  
+                       '-0.5', '0.5', '-0.5', '0.5', 'loc_cam', 'loc_img']
+        ),
+
         # launch_ros.actions.Node(
         #     package='tf2_ros',
         #     executable='static_transform_publisher',

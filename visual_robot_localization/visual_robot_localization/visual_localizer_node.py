@@ -7,7 +7,7 @@ from rclpy.duration import Duration
 
 
 from std_msgs.msg import ColorRGBA, Header, Bool
-from std_srvs.srv import SetBool
+from std_srvs.srv import SetBool, Empty
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose, Point, Quaternion, PoseArray, PoseWithCovariance, Vector3
 from visualization_msgs.msg import Marker
@@ -120,6 +120,7 @@ class VisualLocalizer(Node):
 
         self.T_colmap_cam = None
         self.T_map_odom = None
+        self.T_map_body_est = None
 
         # Visualization publishers
         if self.visualize_estimates:
@@ -136,7 +137,7 @@ class VisualLocalizer(Node):
         self.timer = self.create_timer( 1/self.pr_freq , self.computation_callback, callback_group = ReentrantCallbackGroup())
         self.tf_timer = self.create_timer( 1/10 , self.publish_transforms, callback_group = ReentrantCallbackGroup())
 
-        self.update_loc = True
+        self.update_loc = False
 
         self.lock = threading.Lock()
         self.latest_image = None
@@ -159,6 +160,7 @@ class VisualLocalizer(Node):
             self.pcd_points[idx] = np.array(
                 self.reconstruction.points3D[landmark].xyz)
         self.pointcloud_msg = self.point_cloud(points=self.pcd_points, parent_frame="map")
+        self.pc_publisher.publish(self.pointcloud_msg)
 
         if self.compensate_sensor_offset:
             self.get_logger().info('Constructing sensor offset compensator...')
@@ -185,12 +187,38 @@ class VisualLocalizer(Node):
         self.vloc_estimate_covariance = np.array(self.vloc_estimate_covariance)
 
         self.update_localization_srv = self.create_service(SetBool, 'updtate_localization', self.update_localization_callback)
+        self.tag_localization_srv = self.create_service(Empty, 'tag_localization', self.tag_localization_callback)
 
     def update_localization_callback(self, request: SetBool.Request, response: SetBool.Response):
         self.update_loc = request.data
         self.get_logger().info(f'Localization publishing status: {self.update_loc}')
         response.success = True
         response.message = f'Localization publishing status: {self.update_loc}'
+        return response
+    
+    def tag_localization_callback(self, request: Empty.Request, response: Empty.Response):
+        try:
+            tf_map_loctag: TransformStamped = self.tf_buffer.lookup_transform(
+                target_frame="map",
+                source_frame="loc_tag",
+                time=rclpy.time.Time())
+            tf_tag_odom: TransformStamped = self.tf_buffer.lookup_transform(
+                target_frame="tag_1",
+                source_frame="odom",
+                time=rclpy.time.Time())
+            
+            T_map_loctag = self.tf_to_transform(tf_map_loctag)
+            T_tag_odom = self.tf_to_transform(tf_tag_odom)
+
+            T_map_odom = T_map_loctag @ T_tag_odom
+            pub_time = tf_tag_odom.header.stamp
+            tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=T_map_odom, frame_id="map", child_frame_id="odom", time=pub_time)
+            self.tf_static_broadcaster.sendTransform(tf_odom_map)
+
+        except Exception as ex:
+            self.get_logger().info(
+                f'Could not transform: {ex}')
+
         return response
 
     def camera_subscriber_callback(self, image_msg):
@@ -254,12 +282,31 @@ class VisualLocalizer(Node):
                         target_frame="hand",
                         source_frame="odom",
                         time=rclpy.time.Time())
+                    tf_handimg_odom: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="hand_color_image_sensor",
+                        source_frame="odom",
+                        time=rclpy.time.Time())
+                    tf_handimg_body: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="hand_color_image_sensor",
+                        source_frame="body",
+                        time=rclpy.time.Time())
+                    tf_loccam_locimg: TransformStamped = self.tf_buffer.lookup_transform(
+                        target_frame="loc_cam",
+                        source_frame="loc_img",
+                        time=rclpy.time.Time())
+
+                    T_handimg_body = self.tf_to_transform(tf_handimg_body)
+                    T_loccam_locimg = self.tf_to_transform(tf_loccam_locimg)
                     T_map_colmap = self.tf_to_transform(tf_map_colmap)
                     T_map_cam = T_map_colmap @ self.T_colmap_cam
+                    T_map_locimg = T_map_cam @ T_loccam_locimg
 
                     T_hand_odom = self.tf_to_transform(tf_hand_odom)
+                    T_handimg_odom = self.tf_to_transform(tf_handimg_odom)
 
-                    self.T_map_odom =  T_map_cam @ T_hand_odom
+                    # self.T_map_odom =  T_map_cam @ T_hand_odom
+                    self.T_map_odom =  T_map_locimg @ T_handimg_odom
+                    self.T_map_body_est = T_map_locimg @ T_handimg_body
                                        
                     
                 except Exception as ex:
@@ -275,6 +322,9 @@ class VisualLocalizer(Node):
         if self.T_colmap_cam is not None and self.T_map_odom is not None:
             tf_cam_colmap = self.transform_to_tf(T_frameId_childFrameId=self.T_colmap_cam, frame_id="colmap", child_frame_id="loc_cam")
             self.tf_broadcaster.sendTransform(tf_cam_colmap)
+
+            tf_map_body = self.transform_to_tf(T_frameId_childFrameId=self.T_map_body_est,frame_id="map", child_frame_id="body_est")
+            self.tf_broadcaster.sendTransform(tf_map_body)
             
             if self.update_loc:
                 try:
