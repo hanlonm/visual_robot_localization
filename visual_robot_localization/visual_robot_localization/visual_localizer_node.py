@@ -278,10 +278,10 @@ class VisualLocalizer(Node):
                         source_frame="colmap",
                         time=rclpy.time.Time())
                     
-                    tf_hand_odom: TransformStamped = self.tf_buffer.lookup_transform(
-                        target_frame="hand",
-                        source_frame="odom",
-                        time=rclpy.time.Time())
+                    # tf_hand_odom: TransformStamped = self.tf_buffer.lookup_transform(
+                    #     target_frame="hand",
+                    #     source_frame="odom",
+                    #     time=rclpy.time.Time())
                     tf_handimg_odom: TransformStamped = self.tf_buffer.lookup_transform(
                         target_frame="hand_color_image_sensor",
                         source_frame="odom",
@@ -301,7 +301,7 @@ class VisualLocalizer(Node):
                     T_map_cam = T_map_colmap @ self.T_colmap_cam
                     T_map_locimg = T_map_cam @ T_loccam_locimg
 
-                    T_hand_odom = self.tf_to_transform(tf_hand_odom)
+                    # T_hand_odom = self.tf_to_transform(tf_hand_odom)
                     T_handimg_odom = self.tf_to_transform(tf_handimg_odom)
 
                     # self.T_map_odom =  T_map_cam @ T_hand_odom
@@ -433,7 +433,7 @@ class VisualLocalizer(Node):
 
         # self.place_recognition_publisher.publish(marker)
         self.pnp_estimate_publisher.publish(poses)
-        self.pc_publisher.publish(self.pointcloud_msg)
+        # self.pc_publisher.publish(self.pointcloud_msg)
 
     def point_cloud(self, points, parent_frame):
         """ Creates a point cloud message.
