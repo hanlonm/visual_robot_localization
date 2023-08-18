@@ -3,7 +3,7 @@ import launch_ros.actions
 
 
 def generate_launch_description():
-    environment = "DLAB_3"
+    environment = "DLAB_5"
     ld = launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(
             name='pose_publish_topic',
@@ -155,8 +155,8 @@ def generate_launch_description():
         launch_ros.actions.Node(
             package='tf2_ros',
             executable='static_transform_publisher',
-            arguments=['10.25209456', '2.39437442', '-1.0425929',  
-                       '0.7067652',  '-0.0051213', '-0.02284135', '0.70706082','map', 'loc_tag']
+            arguments=['-2.17477406', '11.42068027', '-1.27173373',  
+                       '0.48829861',  '0.52041095', '0.50712047', '0.48328639','map', 'loc_tag']
         ),
         launch_ros.actions.Node(
             package='tf2_ros',
