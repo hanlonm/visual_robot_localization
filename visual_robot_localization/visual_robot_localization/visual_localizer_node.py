@@ -212,7 +212,7 @@ class VisualLocalizer(Node):
 
             T_map_odom = T_map_loctag @ T_tag_odom
             pub_time = tf_tag_odom.header.stamp
-            tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=T_map_odom, frame_id="map", child_frame_id="odom", time=pub_time)
+            tf_odom_map = self.transform_to_tf(T_frameId_childFrameId=T_map_odom, frame_id="map", child_frame_id="odom")
             self.tf_static_broadcaster.sendTransform(tf_odom_map)
 
         except Exception as ex:
