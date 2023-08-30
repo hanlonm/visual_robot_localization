@@ -285,15 +285,15 @@ class VisualLocalizer(Node):
                     tf_handimg_odom: TransformStamped = self.tf_buffer.lookup_transform(
                         target_frame="hand_color_image_sensor",
                         source_frame="odom",
-                        time=rclpy.time.Time())
+                        time=rclpy.time.Time(clock_type=rclpy.clock.ClockType.ROS_TIME))
                     tf_handimg_body: TransformStamped = self.tf_buffer.lookup_transform(
                         target_frame="hand_color_image_sensor",
                         source_frame="body",
-                        time=rclpy.time.Time())
+                        time=rclpy.time.Time(clock_type=rclpy.clock.ClockType.ROS_TIME))
                     tf_loccam_locimg: TransformStamped = self.tf_buffer.lookup_transform(
                         target_frame="loc_cam",
                         source_frame="loc_img",
-                        time=rclpy.time.Time())
+                        time=rclpy.time.Time(clock_type=rclpy.clock.ClockType.ROS_TIME))
 
                     T_handimg_body = self.tf_to_transform(tf_handimg_body)
                     T_loccam_locimg = self.tf_to_transform(tf_loccam_locimg)
