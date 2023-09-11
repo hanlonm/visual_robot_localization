@@ -11,7 +11,7 @@ def generate_launch_description():
         ),
         launch.actions.DeclareLaunchArgument(
             name='camera_topic',
-            default_value='/spot/camera/hand_color/image'
+            default_value='/spot/camera/hand_color/image_throttled'
             # default_value='/image_raw'
         ),
         launch.actions.DeclareLaunchArgument(
